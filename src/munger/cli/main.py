@@ -1,0 +1,213 @@
+"""Main CLI entry point for Munger advisor."""
+
+import typer
+from rich.console import Console
+
+from munger.cli import profile as profile_cmd
+from munger.cli import charter as charter_cmd
+from munger.cli import event as event_cmd
+from munger.cli import ask as ask_cmd
+from munger.cli import chat as chat_cmd
+from munger.cli import ingest as ingest_cmd
+
+# Create the main app
+app = typer.Typer(
+    name="munger",
+    help="Charlie Munger Personal Advisor - Your wise friend who knows you deeply.",
+    no_args_is_help=True,
+)
+
+console = Console()
+
+# Register subcommands
+app.add_typer(profile_cmd.app, name="profile", help="Manage your profile")
+app.add_typer(charter_cmd.app, name="charter", help="Manage your personal charter")
+app.add_typer(event_cmd.app, name="event", help="Record and view life events")
+app.add_typer(ingest_cmd.app, name="ingest", help="Ingest Munger wisdom materials")
+
+# Direct commands
+app.command(name="ask")(ask_cmd.ask)
+app.command(name="chat")(chat_cmd.chat)
+
+
+@app.command()
+def init():
+    """Initialize Munger advisor with your profile."""
+    from munger.db.database import init_db, get_session
+    from munger.db.repository import UserRepository
+    from munger.core.models import UserProfile, Background, CareerStage
+    from munger.core.config import settings
+
+    console.print("\n[bold blue]Welcome to Munger - Your Personal Advisor[/bold blue]\n")
+    console.print("Let's set up your profile so I can give you personalized advice.\n")
+
+    # Initialize database
+    settings.ensure_data_dir()
+    init_db()
+
+    with get_session() as session:
+        user_repo = UserRepository(session)
+
+        # Check if profile already exists
+        existing = user_repo.get_default()
+        if existing:
+            if not typer.confirm(f"Profile for '{existing.name}' already exists. Update it?"):
+                console.print("[yellow]Setup cancelled.[/yellow]")
+                raise typer.Exit()
+
+        # Collect basic info
+        name = typer.prompt("What's your name?")
+
+        age = typer.prompt("How old are you?", type=int, default=0)
+        if age == 0:
+            age = None
+
+        # Career stage
+        career_options = ["early (0-5 years)", "mid (5-15 years)", "senior (15-25 years)", "executive (25+ years)", "retired"]
+        console.print("\nCareer stage:")
+        for i, opt in enumerate(career_options, 1):
+            console.print(f"  {i}. {opt}")
+        career_choice = typer.prompt("Select", type=int, default=2)
+        career_map = {1: CareerStage.EARLY, 2: CareerStage.MID, 3: CareerStage.SENIOR, 4: CareerStage.EXECUTIVE, 5: CareerStage.RETIRED}
+        career_stage = career_map.get(career_choice, CareerStage.MID)
+
+        industry = typer.prompt("What industry do you work in?", default="")
+        occupation = typer.prompt("What's your occupation?", default="")
+
+        bio = typer.prompt(
+            "Tell me about yourself (background, family, interests - optional)",
+            default="",
+        )
+
+        # Create or update profile
+        background = Background(
+            age=age,
+            career_stage=career_stage,
+            industry=industry if industry else None,
+            occupation=occupation if occupation else None,
+        )
+
+        if existing:
+            existing.name = name
+            existing.background = background
+            existing.bio = bio if bio else None
+            user_repo.update(existing)
+            profile = existing
+        else:
+            profile = UserProfile(
+                name=name,
+                background=background,
+                bio=bio if bio else None,
+            )
+            user_repo.create(profile)
+
+    console.print(f"\n[green]✓ Profile saved for {name}![/green]")
+    console.print("\nNext steps:")
+    console.print("  • Run [bold]munger charter edit[/bold] to define your values")
+    console.print("  • Run [bold]munger ask 'your question'[/bold] to get advice")
+    console.print("  • Run [bold]munger chat[/bold] for interactive conversation")
+
+
+@app.command()
+def review():
+    """Have a reflection session with Munger."""
+    from rich.markdown import Markdown
+
+    from munger.advisor.advisor import advisor
+
+    console.print("\n[bold blue]Reflection Session with Charlie Munger[/bold blue]\n")
+    console.print("[dim]Let me look at what's been happening in your life...[/dim]\n")
+
+    try:
+        # Stream the response
+        response_text = ""
+        for chunk in advisor.reflect(stream=True):
+            console.print(chunk, end="")
+            response_text += chunk
+
+        console.print("\n")
+
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        console.print("Run [bold]munger init[/bold] to set up your profile first.")
+        raise typer.Exit(1)
+
+
+@app.command()
+def status():
+    """Check the status of your Munger advisor setup."""
+    from munger.core.config import settings
+    from munger.db.database import get_session
+    from munger.db.repository import UserRepository, CharterRepository, EventRepository
+    from munger.db.vector_store import WisdomVectorStore
+
+    console.print("\n[bold]Munger Advisor Status[/bold]\n")
+
+    # Check data directory
+    console.print(f"Data directory: {settings.data_dir}")
+    console.print(f"  Exists: {'[green]Yes[/green]' if settings.data_dir.exists() else '[red]No[/red]'}")
+
+    # Check database
+    console.print(f"\nDatabase: {settings.db_path}")
+    console.print(f"  Exists: {'[green]Yes[/green]' if settings.db_path.exists() else '[red]No[/red]'}")
+
+    if settings.db_path.exists():
+        with get_session() as session:
+            user_repo = UserRepository(session)
+            charter_repo = CharterRepository(session)
+            event_repo = EventRepository(session)
+
+            profile = user_repo.get_default()
+            if profile:
+                console.print(f"\n[bold]Profile:[/bold] {profile.name}")
+                console.print(f"  Career stage: {profile.background.career_stage.value if profile.background.career_stage else 'Not set'}")
+                console.print(f"  Industry: {profile.background.industry or 'Not set'}")
+
+                charter = charter_repo.get_by_user(profile.id)
+                console.print(f"\n[bold]Charter:[/bold] {'[green]Defined[/green]' if charter and charter.values else '[yellow]Not defined[/yellow]'}")
+                if charter and charter.values:
+                    console.print(f"  Values: {', '.join(charter.values[:3])}")
+
+                events = event_repo.list_by_user(profile.id, limit=100)
+                console.print(f"\n[bold]Life events:[/bold] {len(events)} recorded")
+            else:
+                console.print("\n[yellow]No profile found. Run 'munger init' to get started.[/yellow]")
+
+    # Check vector store
+    console.print(f"\nVector store: {settings.vector_store_path}")
+    if settings.vector_store_path.exists():
+        try:
+            store = WisdomVectorStore()
+            count = store.get_count()
+            console.print(f"  Wisdom entries: {count}")
+        except Exception as e:
+            console.print(f"  [red]Error loading: {e}[/red]")
+    else:
+        console.print("  [yellow]Not initialized[/yellow]")
+
+    # Check LLM configuration
+    console.print(f"\n[bold]LLM Provider:[/bold] {settings.llm_provider}")
+    if settings.llm_provider == "openai":
+        console.print(f"  API Key: {'[green]Set[/green]' if settings.openai_api_key else '[red]Not set[/red]'}")
+        console.print(f"  Model: {settings.openai_model}")
+    elif settings.llm_provider == "anthropic":
+        console.print(f"  API Key: {'[green]Set[/green]' if settings.anthropic_api_key else '[red]Not set[/red]'}")
+        console.print(f"  Model: {settings.anthropic_model}")
+    elif settings.llm_provider == "kimi":
+        console.print(f"  API Key: {'[green]Set[/green]' if settings.kimi_api_key else '[red]Not set[/red]'}")
+        console.print(f"  Model: {settings.kimi_model}")
+    else:  # siliconflow
+        console.print(f"  API Key: {'[green]Set[/green]' if settings.siliconflow_api_key else '[red]Not set[/red]'}")
+        console.print(f"  Model: {settings.siliconflow_model}")
+
+    console.print()
+
+
+@app.callback()
+def main():
+    """Charlie Munger Personal Advisor - Your wise friend who knows you deeply."""
+    pass
+
+
+if __name__ == "__main__":
+    app()

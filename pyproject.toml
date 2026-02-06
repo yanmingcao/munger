@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "munger"
+version = "0.1.0"
+description = "Charlie Munger Personal Advisor CLI - Your wise friend who knows you deeply"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Yanming Cao" }
+]
+keywords = ["charlie-munger", "advisor", "cli", "wisdom", "mental-models"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+]
+
+dependencies = [
+    # CLI Framework
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    
+    # Database
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    
+    # Vector Store & Embeddings
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "onnxruntime>=1.16.0",
+    
+    # LLM Integration
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    
+    # Content Ingestion
+    "httpx>=0.26.0",
+    "beautifulsoup4>=4.12.0",
+    "pdfplumber>=0.10.0",
+    "readability-lxml>=0.8.0",
+    
+    # Data Validation
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "platformdirs>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+munger = "munger.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/yanmingcao/munger"
+Documentation = "https://github.com/yanmingcao/munger#readme"
+Repository = "https://github.com/yanmingcao/munger"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/munger"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
