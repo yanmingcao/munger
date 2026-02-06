@@ -7,11 +7,25 @@ from rich.panel import Panel
 console = Console()
 
 
-def chat():
+def chat(
+    language: str = typer.Option(
+        None,
+        "--language", "-l",
+        help="Output language (english or chinese). Overrides config setting."
+    ),
+):
     """Start an interactive chat session with Charlie Munger."""
     from munger.advisor.advisor import advisor
     from munger.db.database import get_session
     from munger.db.repository import UserRepository
+    from munger.core.config import settings
+    
+    # Override language if specified
+    if language:
+        if language.lower() in ["english", "chinese"]:
+            object.__setattr__(settings, "language", language.lower())
+        else:
+            console.print(f"[yellow]Warning: Invalid language '{language}'. Using {settings.language}.[/yellow]")
 
     console.print(Panel(
         "[bold]Interactive Chat with Charlie Munger[/bold]\n\n"

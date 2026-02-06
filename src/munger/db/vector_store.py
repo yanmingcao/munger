@@ -206,12 +206,19 @@ class WisdomVectorStore:
             self._embeddings_file.unlink()
 
     def get_random_wisdom(self) -> dict[str, Any] | None:
-        """Get a random piece of wisdom (Daily Wisdom feature)."""
+        """Get a random quote (Daily Wisdom feature) - only returns actual quotes, not document chunks."""
         if not self._data:
             return None
         
         import random
-        item = random.choice(self._data)
+        
+        # Filter to only get actual quotes (not document chunks from PDFs)
+        quotes = [item for item in self._data if item.get("category") == "quote"]
+        
+        if not quotes:
+            return None
+        
+        item = random.choice(quotes)
         
         return {
             "id": item["id"],

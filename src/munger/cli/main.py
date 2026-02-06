@@ -109,14 +109,32 @@ def init():
 
 
 @app.command()
-def review():
+def review(
+    language: str = typer.Option(
+        None,
+        "--language", "-l",
+        help="Output language (english or chinese). Overrides config setting."
+    ),
+):
     """Have a reflection session with Munger."""
     from rich.markdown import Markdown
+    from munger.core.config import settings
 
     from munger.advisor.advisor import advisor
 
-    console.print("\n[bold blue]Reflection Session with Charlie Munger[/bold blue]\n")
-    console.print("[dim]Let me look at what's been happening in your life...[/dim]\n")
+    # Override language if specified
+    if language:
+        if language.lower() in ["english", "chinese"]:
+            object.__setattr__(settings, "language", language.lower())
+        else:
+            console.print(f"[yellow]Warning: Invalid language '{language}'. Using {settings.language}.[/yellow]")
+
+    if settings.language == "chinese":
+        console.print("\n[bold blue]与查理·芒格的反思对话[/bold blue]\n")
+        console.print("[dim]让我看看你最近生活中发生的事情...[/dim]\n")
+    else:
+        console.print("\n[bold blue]Reflection Session with Charlie Munger[/bold blue]\n")
+        console.print("[dim]Let me look at what's been happening in your life...[/dim]\n")
 
     try:
         # Stream the response
@@ -204,17 +222,35 @@ def status():
 
 
 @app.command(name="wisdom")
-def wisdom():
+def wisdom(
+    language: str = typer.Option(
+        None,
+        "--language", "-l",
+        help="Output language (english or chinese). Overrides config setting."
+    ),
+):
     """Get a random daily wisdom from Charlie Munger."""
     from rich.panel import Panel
     from munger.db.vector_store import WisdomVectorStore
+    from munger.core.config import settings
+    from munger.advisor.llm import generate_response
+    
+    # Override language if specified
+    if language:
+        if language.lower() in ["english", "chinese"]:
+            object.__setattr__(settings, "language", language.lower())
+        else:
+            console.print(f"[yellow]Warning: Invalid language '{language}'. Using {settings.language}.[/yellow]")
     
     try:
         store = WisdomVectorStore()
         wisdom_item = store.get_random_wisdom()
         
         if not wisdom_item:
-            console.print("[yellow]No wisdom found. Run 'munger ingest seed' first.[/yellow]")
+            if settings.language == "chinese":
+                console.print("[yellow]没有找到智慧语录。请先运行 'munger ingest seed'。[/yellow]")
+            else:
+                console.print("[yellow]No wisdom found. Run 'munger ingest seed' first.[/yellow]")
             raise typer.Exit(1)
         
         content = wisdom_item["content"]
@@ -223,32 +259,116 @@ def wisdom():
         source = metadata.get("source", "Unknown")
         category = metadata.get("category", "wisdom")
         
+        # Translate to Chinese if needed
+        if settings.language == "chinese":
+            # Translate the quote content
+            translation_prompt = [
+                {
+                    "role": "system",
+                    "content": "You are a professional translator. Translate the following Charlie Munger quote to natural, idiomatic Simplified Chinese (简体中文). Preserve the wisdom and tone. Only return the translation, no explanations."
+                },
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ]
+            try:
+                translated = generate_response(translation_prompt, stream=False)
+                if translated and isinstance(translated, str):
+                    content = translated.strip()
+            except Exception:
+                # If translation fails, keep original English
+                pass
+            
+            # Translate the title
+            title_translation_prompt = [
+                {
+                    "role": "system",
+                    "content": "Translate the following title to Simplified Chinese (简体中文). Keep it concise and elegant. Only return the translation."
+                },
+                {
+                    "role": "user",
+                    "content": title
+                }
+            ]
+            try:
+                title_translated = generate_response(title_translation_prompt, stream=False)
+                if title_translated and isinstance(title_translated, str):
+                    title = title_translated.strip()
+            except Exception:
+                # If translation fails, keep original English title
+                pass
+            
+            # Translate the source
+            source_translation_prompt = [
+                {
+                    "role": "system",
+                    "content": "Translate the following source attribution to Simplified Chinese (简体中文). Be natural and concise. Only return the translation."
+                },
+                {
+                    "role": "user",
+                    "content": source
+                }
+            ]
+            try:
+                source_translated = generate_response(source_translation_prompt, stream=False)
+                if source_translated and isinstance(source_translated, str):
+                    source = source_translated.strip()
+            except Exception:
+                # If translation fails, keep original English source
+                pass
+            
+            panel_title = f"[yellow]每日智慧: {title}[/yellow]"
+            panel_subtitle = f"[bright_cyan]{source} (名言)[/bright_cyan]"
+        else:
+            panel_title = f"[yellow]Daily Wisdom: {title}[/yellow]"
+            panel_subtitle = f"[bright_cyan]{source} ({category})[/bright_cyan]"
+        
         # Display the wisdom
         console.print()
         console.print(Panel(
             f"[bold]{content}[/bold]",
-            title=f"[yellow]Daily Wisdom: {title}[/yellow]",
-            subtitle=f"[dim]{source} ({category})[/dim]",
+            title=panel_title,
+            subtitle=panel_subtitle,
             border_style="blue",
             padding=(1, 2),
         ))
         console.print()
         
     except Exception as e:
-        console.print(f"[red]Error loading wisdom: {e}[/red]")
+        if settings.language == "chinese":
+            console.print(f"[red]加载智慧语录时出错: {e}[/red]")
+        else:
+            console.print(f"[red]Error loading wisdom: {e}[/red]")
         raise typer.Exit(1)
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context):
+def main(
+    ctx: typer.Context,
+    language: str = typer.Option(
+        None,
+        "--language", "-l",
+        help="Output language (english or chinese). Overrides config setting."
+    ),
+):
     """Charlie Munger Personal Advisor - Your wise friend who knows you deeply.
     
     When run without arguments, displays a random daily wisdom.
     """
+    from munger.core.config import settings
+    
+    # Override language if specified
+    if language:
+        if language.lower() in ["english", "chinese"]:
+            object.__setattr__(settings, "language", language.lower())
+        else:
+            console.print(f"[yellow]Warning: Invalid language '{language}'. Using {settings.language}.[/yellow]")
+    
     # If no command is given, show daily wisdom
     if ctx.invoked_subcommand is None:
-        # Invoke the wisdom command
-        ctx.invoke(wisdom)
+        # Invoke the wisdom command (without language arg since it's already set)
+        ctx.invoke(wisdom, language=None)
 
 
 if __name__ == "__main__":
