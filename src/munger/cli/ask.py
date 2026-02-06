@@ -19,9 +19,23 @@ def ask(
         "--no-stream",
         help="Disable streaming output"
     ),
+    language: str = typer.Option(
+        None,
+        "--language", "-l",
+        help="Output language (english or chinese). Overrides config setting."
+    ),
 ):
     """Ask Charlie Munger for advice."""
     from munger.advisor.advisor import advisor
+    from munger.core.config import settings
+
+    # Override language if specified
+    if language:
+        if language.lower() in ["english", "chinese"]:
+            # Use object.__setattr__ to bypass pydantic validation
+            object.__setattr__(settings, "language", language.lower())
+        else:
+            console.print(f"[yellow]Warning: Invalid language '{language}'. Using {settings.language}.[/yellow]")
 
     console.print()
 

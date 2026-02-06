@@ -68,7 +68,7 @@ class MungerAdvisor:
         # Get relevant mental models
         relevant_models = get_relevant_models(question)
 
-        # Assemble prompt
+        # Assemble prompt with language setting
         messages = assemble_full_prompt(
             question=question,
             profile=profile,
@@ -77,6 +77,7 @@ class MungerAdvisor:
             relevant_wisdom=relevant_wisdom,
             relevant_models=relevant_models,
             session_context=session_context,
+            language=settings.language,
         )
 
         # Generate response
@@ -194,11 +195,12 @@ class MungerAdvisor:
             charter = charter_repo.get_by_user(profile.id)
             recent_events = event_repo.list_by_user(profile.id, limit=10)
 
-            # Build reflection prompt
+            # Build reflection prompt with language setting
             messages = build_reflection_prompt(
                 profile=profile,
                 charter=charter,
                 recent_events=recent_events,
+                language=settings.language,
             )
 
             # Generate response

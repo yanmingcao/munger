@@ -54,6 +54,52 @@ MUNGER_SYSTEM_PROMPT = """You are Charlie Munger, the legendary investor, thinke
 
 Remember: You're a wise old friend who genuinely cares about this person's wellbeing. You've seen a lot, made mistakes, learned from them, and want to help them avoid the pitfalls you've observed over 99 years of life."""
 
+MUNGER_SYSTEM_PROMPT_CHINESE = """你是查理·芒格，传奇投资者、思想家，伯克希尔·哈撒韦公司副董事长。你已活到99岁高龄，在多个学科领域积累了深厚的智慧。
+
+## 你的性格特点
+
+**说话风格：**
+- 直接、平实，不使用企业行话或流行语
+- 冷幽默和自嘲
+- 使用生动的类比和令人难忘的格言
+- 必要时敢于提出不受欢迎的真知灼见
+- 坦诚但不残忍——诚实是因为关心对方
+
+**思维方式：**
+- 跨学科思维——融合心理学、经济学、物理学、生物学、历史学
+- 第一性原理推理——直达事物本质
+- 逆向思维——"我只想知道我会死在哪里，这样我就永远不会去那里"
+- 长期复利思维——耐心胜过短期收益
+- 专注于避免愚蠢，而非追求聪明才智
+
+**核心理念：**
+- "对于一个拿着锤子的人来说，每个问题都像钉子"——要运用多种思维模型
+- "一个人能做的事情中，最好的就是帮助他人了解更多"
+- "认真对待一个简单的想法"
+- 持续学习至关重要——广泛阅读，深入思考
+- 品格和诚信比聪明更重要
+
+## 你的建议方法
+
+1. **了解这个人**——他们的处境、限制、价值观很重要
+2. **应用思维模型**——为问题选择合适的分析框架
+3. **考虑激励因素**——理解是什么驱动行为
+4. **逆向思考问题**——什么会导致失败？避免它
+5. **保持诚实**——即使令人不适
+6. **着眼长远**——不要为今天牺牲明天
+7. **承认不确定性**——承认自己不知道的事情
+
+## 你不会做的事
+
+- 给出空洞的励志建议
+- 粉饰令人不安的真相
+- 假装了解超出自己能力范围的事情
+- 鼓励投机或赌博
+- 支持短视思维
+- 认可明显愚蠢的决定
+
+记住：你是一位真正关心对方福祉的智慧老友。你经历了很多，犯过错，从中学习，并希望帮助他们避免你在99年人生中观察到的陷阱。"""
+
 
 def build_personalization_context(
     profile: UserProfile | None,
@@ -205,6 +251,20 @@ def get_topic_context(question: str) -> str:
         return LIFE_DECISION_CONTEXT
 
 
+def get_system_prompt(language: str = "english") -> str:
+    """Get the appropriate system prompt based on language."""
+    if language.lower() == "chinese":
+        return MUNGER_SYSTEM_PROMPT_CHINESE
+    return MUNGER_SYSTEM_PROMPT
+
+
+def get_language_instruction(language: str = "english") -> str:
+    """Get language instruction for the response."""
+    if language.lower() == "chinese":
+        return "\n\n## Language Instruction\n\nYou MUST respond in Simplified Chinese (简体中文). Use natural, conversational Chinese that sounds wise and approachable, like a knowledgeable elderly friend speaking to a younger person."
+    return ""
+
+
 # ============================================================================
 # Full Prompt Assembly
 # ============================================================================
@@ -217,12 +277,13 @@ def assemble_full_prompt(
     relevant_wisdom: list[dict] | None = None,
     relevant_models: list[MentalModel] | None = None,
     session_context: str | None = None,
+    language: str = "english",
 ) -> list[dict[str, str]]:
     """Assemble the complete prompt for the LLM."""
     messages = []
 
     # System message
-    system_parts = [MUNGER_SYSTEM_PROMPT]
+    system_parts = [get_system_prompt(language)]
 
     # Add personalization
     personalization = build_personalization_context(profile, charter, recent_events)
@@ -235,6 +296,11 @@ def assemble_full_prompt(
 
     # Add response guidelines
     system_parts.append(RESPONSE_GUIDELINES)
+
+    # Add language instruction
+    language_instruction = get_language_instruction(language)
+    if language_instruction:
+        system_parts.append(language_instruction)
 
     messages.append({
         "role": "system",
@@ -279,22 +345,42 @@ Be warm but honest. This is a trusted relationship where candor is expected and 
 
 Recent events and context will be provided. Synthesize them into meaningful observations."""
 
+REFLECTION_PROMPT_CHINESE = """你是查理·芒格，正在与一个你很熟悉的人进行定期回顾。
+
+这是一次反思性对话，你将：
+1. 回顾他们最近生活中发生的事情
+2. 注意到他们决策中的模式
+3. 提供观察和洞见
+4. 帮助他们看到可能遗漏的事情
+5. 建议需要关注或成长的领域
+
+保持温暖但诚实。这是一种彼此信任的关系，坦诚相待是理所当然且被珍视的。
+
+近期事件和背景信息将会被提供。将它们综合成有意义的观察。"""
+
 
 def build_reflection_prompt(
     profile: UserProfile,
     charter: Charter | None,
     recent_events: list[LifeEvent],
+    language: str = "english",
 ) -> list[dict[str, str]]:
     """Build prompt for a reflection session."""
     messages = []
 
     # System message
-    system_parts = [REFLECTION_PROMPT]
+    system_prompt = REFLECTION_PROMPT_CHINESE if language.lower() == "chinese" else REFLECTION_PROMPT
+    system_parts = [system_prompt]
 
     # Add personalization
     personalization = build_personalization_context(profile, charter, recent_events)
     if personalization:
         system_parts.append(personalization)
+
+    # Add language instruction
+    language_instruction = get_language_instruction(language)
+    if language_instruction:
+        system_parts.append(language_instruction)
 
     messages.append({
         "role": "system",
@@ -302,7 +388,10 @@ def build_reflection_prompt(
     })
 
     # Build the reflection request
-    user_content = "Let's do a reflection session. Looking at my recent events and what you know about me, what patterns do you see? What should I be thinking about?"
+    if language.lower() == "chinese":
+        user_content = "让我们做一次反思对话。看看我最近的事件和你对我的了解，你看到了什么模式？我应该思考些什么？"
+    else:
+        user_content = "Let's do a reflection session. Looking at my recent events and what you know about me, what patterns do you see? What should I be thinking about?"
 
     messages.append({
         "role": "user",

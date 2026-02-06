@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     siliconflow_api_key: str | None = Field(default=None, description="SiliconFlow API key")
     siliconflow_model: str = Field(default="deepseek-ai/DeepSeek-V3", description="SiliconFlow model to use")
 
+    # Language settings
+    language: Literal["english", "chinese"] = Field(
+        default="english", description="Output language (english or chinese)"
+    )
+
     # Retrieval settings
     retrieval_top_k: int = Field(
         default=5, description="Number of documents to retrieve for RAG"

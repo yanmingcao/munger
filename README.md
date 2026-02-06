@@ -49,6 +49,10 @@ export MUNGER_LLM_PROVIDER="siliconflow"
 export MUNGER_SILICONFLOW_API_KEY="your-api-key"
 # Optional: specify a different model (default: deepseek-ai/DeepSeek-V3)
 export MUNGER_SILICONFLOW_MODEL="deepseek-ai/DeepSeek-V3"
+
+# Language setting (english or chinese)
+export MUNGER_LANGUAGE="chinese"
+export MUNGER_SILICONFLOW_MODEL="deepseek-ai/DeepSeek-V3"
 ```
 
 ## Quick Start
