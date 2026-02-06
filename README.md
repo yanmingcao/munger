@@ -52,7 +52,6 @@ export MUNGER_SILICONFLOW_MODEL="deepseek-ai/DeepSeek-V3"
 
 # Language setting (english or chinese)
 export MUNGER_LANGUAGE="chinese"
-export MUNGER_SILICONFLOW_MODEL="deepseek-ai/DeepSeek-V3"
 ```
 
 ## Quick Start
@@ -63,6 +62,9 @@ munger init
 
 # 2. Seed the wisdom knowledge base
 munger ingest seed
+
+# 2b. Load curated presets (web + PDFs)
+munger ingest presets
 
 # 3. Define your personal charter (values, goals)
 munger charter edit
