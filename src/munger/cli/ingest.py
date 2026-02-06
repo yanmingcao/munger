@@ -7,8 +7,67 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 import sys
 import typer
+from pathlib import Path
 
 app = typer.Typer(help="Ingest Munger wisdom materials")
+
+
+# Presets: built-in wisdom sources
+PRESETS = {
+    "web": [
+        {
+            "url": "https://fs.blog/great-talks/psychology-human-misjudgment/",
+            "title": "The Psychology of Human Misjudgment",
+            "category": "speech_excerpt",
+        },
+        {
+            "url": "https://fs.blog/great-talks/a-lesson-on-worldly-wisdom/",
+            "title": "Elementary Worldly Wisdom",
+            "category": "speech_excerpt",
+        },
+        {
+            "url": "https://singjupost.com/full-transcript-charlie-mungers-speech-at-usc-commencement-2007/",
+            "title": "USC Commencement Speech 2007",
+            "category": "speech_excerpt",
+        },
+        {
+            "url": "https://www.octafinance.com/charlie-munger-quotes/",
+            "title": "Charlie Munger Quotes Collection",
+            "category": "quote",
+        },
+        {
+            "url": "https://www.joshuakennon.com/the-complete-list-of-charlie-munger-quotes/",
+            "title": "Complete List of Charlie Munger Quotes",
+            "category": "quote",
+        },
+    ],
+    "pdfs": [
+        {
+            "filename": "poor-charlies-almanack.pdf",
+            "title": "Poor Charlie's Almanack",
+            "category": "book_excerpt",
+            "description": "Charlie Munger's collected wisdom and investment philosophy",
+        },
+        {
+            "filename": "berkshire-letters.pdf",
+            "title": "Berkshire Hathaway Letters",
+            "category": "book_excerpt",
+            "description": "Annual letters from Berkshire Hathaway shareholders",
+        },
+        {
+            "filename": "psychology-of-human-misjudgment-2005.pdf",
+            "title": "The Psychology of Human Misjudgment",
+            "category": "speech_excerpt",
+            "description": "Charlie Munger's famous speech on cognitive biases",
+        },
+        {
+            "filename": "daily-journal-2021.pdf",
+            "title": "Daily Journal 2021 Meeting",
+            "category": "speech_excerpt",
+            "description": "Charlie Munger's remarks at Daily Journal annual meeting",
+        },
+    ],
+}
 
 
 def output(msg: str):
@@ -142,6 +201,108 @@ def search_wisdom(
 
     except Exception as e:
         output(f"Error searching: {e}")
+        import traceback
+        traceback.print_exc()
+        raise typer.Exit(1)
+
+
+@app.command(name="presets")
+def ingest_presets(
+    source: str = typer.Option(
+        "all",
+        "--source",
+        "-s",
+        help="Which presets to ingest: all, web, or pdfs",
+    ),
+    preset: str = typer.Option(
+        None,
+        "--preset",
+        "-p",
+        help="Specific preset to ingest (web title key or pdf filename key)",
+    ),
+):
+    """Ingest built-in wisdom presets from web and PDF resources."""
+    from munger.ingest.processor import ContentProcessor
+
+    try:
+        if source not in {"all", "web", "pdfs"}:
+            output("Invalid --source. Use: all, web, or pdfs")
+            raise typer.Exit(1)
+
+        processor = ContentProcessor()
+        total_count = 0
+        failed = []
+
+        if source in {"all", "web"}:
+            output("Ingesting web presets...")
+            web_presets = PRESETS.get("web", [])
+            for entry in web_presets:
+                if preset and preset != entry.get("title"):
+                    continue
+                try:
+                    output(f"Ingesting {entry['title']}...")
+                    count = processor.process_url(
+                        entry["url"],
+                        title=entry["title"],
+                        category=entry["category"],
+                    )
+                    total_count += count
+                    output(f"  Added {count} entries from {entry['title']}")
+                except Exception as e:
+                    output(f"Error processing {entry['title']}: {e}")
+                    failed.append(entry["title"])
+
+        if source in {"all", "pdfs"}:
+            output("Ingesting PDF presets...")
+
+            try:
+                import munger
+                resource_dir = Path(munger.__file__).parent / "resources" / "pdfs"
+            except Exception:
+                output("Error: Could not locate munger package resources")
+                raise typer.Exit(1)
+
+            if not resource_dir.exists():
+                output(f"Error: Resources directory not found: {resource_dir}")
+                raise typer.Exit(1)
+
+            pdf_presets = PRESETS.get("pdfs", [])
+            for entry in pdf_presets:
+                if preset and preset != entry.get("filename"):
+                    continue
+                pdf_path = resource_dir / entry["filename"]
+
+                if not pdf_path.exists():
+                    output(f"Warning: Preset PDF not found: {pdf_path}")
+                    failed.append(entry["filename"])
+                    continue
+
+                try:
+                    output(f"Ingesting {entry['title']}...")
+                    count = processor.process_file(
+                        pdf_path,
+                        title=entry["title"],
+                        category=entry["category"],
+                    )
+                    total_count += count
+                    output(f"  Added {count} entries from {entry['title']}")
+                except Exception as e:
+                    output(f"Error processing {entry['title']}: {e}")
+                    failed.append(entry["title"])
+
+        output("")
+        if total_count > 0:
+            output(f"Successfully ingested {total_count} wisdom entries from presets")
+
+        if failed:
+            output(f"Failed presets: {', '.join(failed)}")
+            if total_count == 0:
+                raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        output(f"Error ingesting presets: {e}")
         import traceback
         traceback.print_exc()
         raise typer.Exit(1)
