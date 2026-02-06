@@ -14,7 +14,7 @@ from munger.cli import ingest as ingest_cmd
 app = typer.Typer(
     name="munger",
     help="Charlie Munger Personal Advisor - Your wise friend who knows you deeply.",
-    no_args_is_help=True,
+    no_args_is_help=False,
 )
 
 console = Console()
@@ -203,10 +203,52 @@ def status():
     console.print()
 
 
-@app.callback()
-def main():
-    """Charlie Munger Personal Advisor - Your wise friend who knows you deeply."""
-    pass
+@app.command(name="wisdom")
+def wisdom():
+    """Get a random daily wisdom from Charlie Munger."""
+    from rich.panel import Panel
+    from munger.db.vector_store import WisdomVectorStore
+    
+    try:
+        store = WisdomVectorStore()
+        wisdom_item = store.get_random_wisdom()
+        
+        if not wisdom_item:
+            console.print("[yellow]No wisdom found. Run 'munger ingest seed' first.[/yellow]")
+            raise typer.Exit(1)
+        
+        content = wisdom_item["content"]
+        metadata = wisdom_item["metadata"]
+        title = metadata.get("title", "Munger Wisdom")
+        source = metadata.get("source", "Unknown")
+        category = metadata.get("category", "wisdom")
+        
+        # Display the wisdom
+        console.print()
+        console.print(Panel(
+            f"[bold]{content}[/bold]",
+            title=f"[yellow]Daily Wisdom: {title}[/yellow]",
+            subtitle=f"[dim]{source} ({category})[/dim]",
+            border_style="blue",
+            padding=(1, 2),
+        ))
+        console.print()
+        
+    except Exception as e:
+        console.print(f"[red]Error loading wisdom: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context):
+    """Charlie Munger Personal Advisor - Your wise friend who knows you deeply.
+    
+    When run without arguments, displays a random daily wisdom.
+    """
+    # If no command is given, show daily wisdom
+    if ctx.invoked_subcommand is None:
+        # Invoke the wisdom command
+        ctx.invoke(wisdom)
 
 
 if __name__ == "__main__":

@@ -204,3 +204,23 @@ class WisdomVectorStore:
             self._data_file.unlink()
         if self._embeddings_file.exists():
             self._embeddings_file.unlink()
+
+    def get_random_wisdom(self) -> dict[str, Any] | None:
+        """Get a random piece of wisdom (Daily Wisdom feature)."""
+        if not self._data:
+            return None
+        
+        import random
+        item = random.choice(self._data)
+        
+        return {
+            "id": item["id"],
+            "content": item["content"],
+            "metadata": {
+                "category": item["category"],
+                "title": item["title"],
+                "source": item["source"],
+                "tags": ",".join(item["tags"]),
+                "related_models": ",".join(item["related_models"]),
+            },
+        }
