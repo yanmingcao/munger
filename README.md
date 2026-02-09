@@ -10,6 +10,7 @@ A CLI application that acts as your personal advisor, speaking with the wisdom a
 - **RAG-Powered**: Retrieves relevant Munger wisdom to inform responses
 - **Privacy-First**: All data stored locally on your machine
 - **Life Event Tracking**: Record significant events that shape your advisor's understanding
+- **Daily Wisdom**: Get a random Munger quote on every startup to inspire your day
 
 ## Installation
 
@@ -69,10 +70,15 @@ munger ingest presets
 # 3. Define your personal charter (values, goals)
 munger charter edit
 
-# 4. Ask for advice
+# 4. Get daily wisdom (automatic on every startup)
+munger
+# or explicitly
+munger wisdom
+
+# 5. Ask for advice
 munger ask "Should I take this job offer that requires relocation?"
 
-# 5. Start an interactive chat
+# 6. Start an interactive chat
 munger chat
 ```
 
@@ -138,7 +144,9 @@ munger ingest search "mental models"  # Search the knowledge base
 ### System Status
 
 ```bash
-munger status  # Check setup status
+munger              # Show daily wisdom (random Munger quote)
+munger wisdom       # Same as above - get a daily dose of Munger wisdom
+munger status       # Check setup status
 ```
 
 ## How It Works
